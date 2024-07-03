@@ -16,20 +16,20 @@ const Dashboard = () => {
           `${import.meta.env.VITE_API_URL}/protected`,
           {
             headers: { Authorization: `Bearer ${user.token}` },
+            withCredentials: true,
           }
         );
         setMessage(response.data.message);
       } catch (error) {
         console.error("Error fetching protected data:", error);
         if (error.response && error.response.status === 403) {
-          // Token expired, try refreshing
           const newToken = await refreshToken();
           if (newToken) {
-            // Retry the request with the new token
             const retryResponse = await axios.get(
               `${import.meta.env.VITE_API_URL}/protected`,
               {
                 headers: { Authorization: `Bearer ${newToken}` },
+                withCredentials: true,
               }
             );
             setMessage(retryResponse.data.message);
@@ -60,6 +60,9 @@ const Dashboard = () => {
       >
         <Typography component="h1" variant="h5">
           Dashboard
+        </Typography>
+        <Typography variant="body1" sx={{ mt: 2 }}>
+          Welcome, User ID: {user.userId}
         </Typography>
         <Typography variant="body1" sx={{ mt: 2 }}>
           {message}

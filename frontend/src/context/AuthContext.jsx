@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import axios from "axios";
+import { jwtDecode } from "jwt-decode";
 
 const AuthContext = createContext();
 
@@ -10,11 +11,21 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (token) {
-      setUser({ token });
-    }
-    setLoading(false);
+    const initAuth = async () => {
+      try {
+        const newToken = await refreshToken();
+        if (newToken) {
+          const decodedToken = jwtDecode(newToken);
+          setUser({ token: newToken, userId: decodedToken.userId });
+        }
+      } catch (error) {
+        console.error("Initial auth error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
   }, []);
 
   const login = async (username, password) => {
@@ -24,12 +35,12 @@ export const AuthProvider = ({ children }) => {
         {
           username,
           password,
-        }
+        },
+        { withCredentials: true }
       );
-      const { accessToken, refreshToken } = response.data;
-      localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("refreshToken", refreshToken);
-      setUser({ token: accessToken });
+      const { accessToken } = response.data;
+      const decodedToken = jwtDecode(accessToken);
+      setUser({ token: accessToken, userId: decodedToken.userId });
       return true;
     } catch (error) {
       console.error("Login error:", error);
@@ -51,28 +62,31 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    setUser(null);
+  const logout = async () => {
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/auth/logout`,
+        {},
+        { withCredentials: true }
+      );
+      setUser(null);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   const refreshToken = async () => {
     try {
-      const refreshToken = localStorage.getItem("refreshToken");
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/auth/refresh-token`,
-        {
-          refreshToken,
-        }
+        {},
+        { withCredentials: true }
       );
       const { accessToken } = response.data;
-      localStorage.setItem("accessToken", accessToken);
-      setUser({ token: accessToken });
       return accessToken;
     } catch (error) {
       console.error("Token refresh error:", error);
-      logout();
+      setUser(null);
       return null;
     }
   };
